@@ -1,0 +1,1 @@
+# spring-sec-auth-checker
