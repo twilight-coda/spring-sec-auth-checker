@@ -215,22 +215,40 @@ public class BankService {
 
 The list below describes the transfer function for each matcher. $f$ is the transfer function and $S$ is the  store.
 
-$S_0$ = $\phi$ is the initial store.
+$S_0$ = $\phi$: The initial store.
+
+$M$: The Map derived from AST analysis in pass 1.
 
 For each matcher/authorization pair $i$, the transfer function transforms the store using the following rule:
 
-$S_i = f(i) = S_{i-1} \cup \{ (e_i, m_i, a_i, ) \mid i \in \text{Matchers} \}$
-- $e_i$: endpoint
-- $m_i$: method
-	- if not specified - ANY
-	- otherwise - GET, PUT, POST etc. 
-- $a_i$: security attributes
-	- `permitAll` - "ALL"
-	- `denyAll` - "NONE"
-	- `authenticated` - "AUTHENTICATED"
-	- `hasAuthority(authority)` or `hasAnyAuthority(authorities...)` - $\{a \mid a \in \text{authorities}\}$
-	- `hasRole(role)` or `hasAnyRole(roles...)` - $\{r \mid r \in \text{roles}\}$
-	- `access(predicate)` - This method takes custom authorization logic, the analysis for this is described later
+$S_i = f(i) = S_{i-1} \cup \{ (e_i, m_i, a_i, preA_j, postA_j, preF_j, postF_j) \mid i \in \text{Matchers}, j \in M \}$
+
+Where each tuple now includes:
+
+- $e_i$: endpoint or predicate if defined using custom logic (details in the custom matchers section).
+- $m_i$: HTTP method
+  - if not specified - ANY
+  - otherwise - GET, PUT, POST, etc.
+- $a_i$: security attributes, derived from various security annotations:
+  - `permitAll` : "ALL"
+  - `denyAll` : "NONE"
+  - `authenticated` : "AUTHENTICATED"
+  - `hasAuthority(authority)` or `hasAnyAuthority(authorities...)` : $\{a \mid a \in \text{authorities}\}$
+  - `hasRole(role)` or `hasAnyRole(roles...)` : $\{r \mid r \in \text{roles}\}$
+  - `access(predicate)` : predicate
+- $preA_j$:
+  - `preAuthorize(predicate)` - predicate
+- $postA_j$:
+  - `postAuthorize(predicate)` - predicate
+- $preF_j$:
+  - `preFilter(predicate)` - predicate
+- $postF_j$:
+  - `postFilter(predicate)` - predicate
+
+Input and output value for $preA_j, postA_j, preF_j, postF_j$ values remain the same in this dataflow analysis, so they are not mentioned in the examples below. They are however included in the store.
+
+
+The next sections describe how the transfer function updates the store in each case.
 
 #### 1. Simple matcher
 
@@ -356,7 +374,7 @@ http
 ##### Transfer Function
 
 `.requestMatchers("/resource/{name}").access(new WebExpressionAuthorizationManager("#name == authentication.name"))`:
-$f(S) = S \cup \{\text{("/resource/\{name\}", ANY, "(= (param1 authName))"}\}$
+$f(S) = S \cup \{\text{("/resource/\{name\}", ANY, "name == authenticationName"}\}$
 
 `.anyRequest().authenticated()`:
 $f(S) = S \cup \{\text{("/endpoint2", ANY, AUTHENTICATED)}\} \cup \{\text{("/endpoint3", ANY, AUTHENTICATED)}\}$
@@ -376,7 +394,7 @@ http
 ##### Transfer Function
 
 `.requestMatchers(printview).hasAuthority("print")`:
-$f(S) = S \cup \{\text{("(= (requestParam "print"))", ANY, \{print\}}\}$
+$f(S) = S \cup \{\text{("requestParam == "print")", ANY, \{print\}}\}$
 
 `.anyRequest().authenticated()`:
 $f(S) = S \cup \{\text{("/endpoint2", ANY, AUTHENTICATED)}\} \cup \{\text{("/endpoint3", ANY, AUTHENTICATED)}\}$
