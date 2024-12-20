@@ -1,4 +1,4 @@
-package models;
+package springsecauthchecker.models;
 
 public class StoreModelBuilder {
     private String url;

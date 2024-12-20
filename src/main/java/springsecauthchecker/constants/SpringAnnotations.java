@@ -1,4 +1,4 @@
-package utils.constants;
+package springsecauthchecker.constants;
 
 public class SpringAnnotations {
     public static final String CONTROLLER = "Controller";

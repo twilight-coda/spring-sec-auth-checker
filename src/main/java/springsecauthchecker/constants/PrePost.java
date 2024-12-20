@@ -1,4 +1,4 @@
-package utils.constants;
+package springsecauthchecker.constants;
 
 public class PrePost {
     public static final String PRE_AUTHORIZE = "PreAuthorize";

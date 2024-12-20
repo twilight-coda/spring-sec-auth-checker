@@ -1,6 +1,6 @@
-package services;
+package springsecauthchecker.services;
 
-import models.StoreModel;
+import springsecauthchecker.models.StoreModel;
 
 public interface StoreService {
 

@@ -1,4 +1,4 @@
-package utils.constants;
+package springsecauthchecker.constants;
 
 public class HttpMethods {
     public static String GET = "get";

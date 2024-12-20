@@ -1,8 +1,10 @@
-package astanalyzer;
+package springsecauthchecker.astanalyzer;
 
-import models.StoreModel;
-import models.StoreModelBuilder;
-import services.StoreService;
+import springsecauthchecker.SpringSecAuthChecker;
+import springsecauthchecker.models.StoreModel;
+import springsecauthchecker.models.StoreModelBuilder;
+import springsecauthchecker.services.PathHelpers;
+import springsecauthchecker.services.StoreService;
 import spoon.Launcher;
 import spoon.MavenLauncher;
 import spoon.reflect.CtModel;
@@ -19,9 +21,9 @@ import java.lang.annotation.Annotation;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static utils.constants.HttpMethods.*;
-import static utils.constants.PrePost.*;
-import static utils.constants.SpringAnnotations.*;
+import static springsecauthchecker.constants.HttpMethods.*;
+import static springsecauthchecker.constants.PrePost.*;
+import static springsecauthchecker.constants.SpringAnnotations.*;
 
 public class AstAnalyzer {
     private final Launcher launcher;
@@ -45,7 +47,7 @@ public class AstAnalyzer {
     );
 
 
-    public AstAnalyzer(String filePath, String[] classPath, StoreService storeService) {
+    public AstAnalyzer(String filePath, StoreService storeService) {
         this.storeService = storeService;
         this.launcher = new MavenLauncher(filePath,
                 MavenLauncher.SOURCE_TYPE.APP_SOURCE);
@@ -53,7 +55,7 @@ public class AstAnalyzer {
         launcher.buildModel();
     }
 
-    public void analyzeAst() throws InvalidPropertiesFormatException {
+    public void analyzeAst() {
         CtModel model = this.launcher.getModel();
         List<CtClass<?>> classes = model.getElements(new AbstractFilter<>() {
             @Override
@@ -156,6 +158,8 @@ public class AstAnalyzer {
         } else if (requestMapping instanceof CtLiteral<?> requestMappingLiteral) {
             return Optional.of(Collections.singletonList((String) requestMappingLiteral.getValue()));
         } else {
+            SpringSecAuthChecker.reportError(PathHelpers.getAnnotationPath(ctAnnotation),
+                    "The value passed to request mapping is invalid");
             throw new IllegalStateException("The value passed to request mapping is invalid");
         }
     }
@@ -176,7 +180,9 @@ public class AstAnalyzer {
             if (element instanceof CtFieldRead<?> fieldRead) {
                 return fieldRead.getVariable().getSimpleName();
             } else {
-                throw new IllegalStateException("Unexpected value");
+                SpringSecAuthChecker.reportError(PathHelpers.getAnnotationPath(ctAnnotation),
+                        "Unexpected request method");
+                return null;
             }
         }
 
@@ -187,12 +193,15 @@ public class AstAnalyzer {
             case PUT_MAPPING -> PUT;
             case DELETE_MAPPING -> DELETE;
             case PATCH_MAPPING -> PATCH;
-            default -> throw new IllegalStateException("Unexpected value: " + ctAnnotation.getName());
+            default -> {
+                SpringSecAuthChecker.reportError(PathHelpers.getAnnotationPath(ctAnnotation),
+                        "Unexpected request method");
+                yield null;
+            }
         };
     }
 
     private Map<String, String> extractPrePostAnnotationExpressions(CtMethod<?> ctMethod) {
-        if (ctMethod == null) throw new IllegalArgumentException("The CtMethod object cannot be null");
 
         var methodAnnotations = ctMethod.getAnnotations();
         Map<String, String> output = new HashMap<>();

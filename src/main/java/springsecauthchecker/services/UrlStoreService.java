@@ -1,6 +1,6 @@
-package services;
+package springsecauthchecker.services;
 
-import models.StoreModel;
+import springsecauthchecker.models.StoreModel;
 
 import java.util.HashMap;
 import java.util.List;
