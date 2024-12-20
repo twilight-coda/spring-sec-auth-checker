@@ -12,10 +12,10 @@ import spoon.reflect.code.CtLiteral;
 import spoon.reflect.code.CtNewArray;
 import spoon.reflect.declaration.CtAnnotation;
 import spoon.reflect.declaration.CtClass;
-import spoon.reflect.declaration.CtElement;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.visitor.filter.AbstractFilter;
 
+import java.lang.annotation.Annotation;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -81,7 +81,7 @@ public class AstAnalyzer {
                                 .anyMatch(ctAnnotation -> methodAnnotations.contains(ctAnnotation.getName()))
                         ).toList();
                 for (CtMethod<?> ctMethod : handlerMethods) {
-                    var methodStores = processElement(ctMethod);
+                    var methodStores = processMethod(ctMethod);
                     methodStores.forEach(storeModel -> {
                         var methodUrl = storeModel.getUrl();
                         var separator = methodUrl.isEmpty() || methodUrl.charAt(0) == '/' ? "" : "/";
@@ -94,11 +94,13 @@ public class AstAnalyzer {
         }
     }
 
-    private List<StoreModel> processElement(CtElement ctElement) {
+    private List<StoreModel> processMethod(CtMethod<?> ctMethod) {
+
+        var prePostAnnotationValues = extractPrePostAnnotationExpressions(ctMethod);
 
         List<StoreModel> output = new ArrayList<>();
-        List<CtAnnotation<?>> annotations = ctElement.getAnnotations().stream()
-                .filter(this::annotationIsToBeProcessed)
+        List<CtAnnotation<?>> annotations = ctMethod.getAnnotations().stream()
+                .filter(this::methodAnnotationIsToBeProcessed)
                 .toList();
 
         for (CtAnnotation<?> annotation : annotations) {
@@ -115,6 +117,10 @@ public class AstAnalyzer {
                         var storeModel = storeBuilder
                                 .setUrl(url)
                                 .setRequestMethod(method)
+                                .setPreAuthorization(prePostAnnotationValues.getOrDefault(PRE_AUTHORIZE, ""))
+                                .setPostAuthorization(prePostAnnotationValues.getOrDefault(POST_AUTHORIZE, ""))
+                                .setPreFilter(prePostAnnotationValues.getOrDefault(PRE_FILTER, ""))
+                                .setPostFilter(prePostAnnotationValues.getOrDefault(POST_FILTER, ""))
                                 .createStoreModel();
                         output.add(storeModel);
                     }
@@ -124,6 +130,10 @@ public class AstAnalyzer {
                     var storeModel = storeBuilder
                             .setUrl("")
                             .setRequestMethod(method)
+                            .setPreAuthorization(prePostAnnotationValues.getOrDefault(PRE_AUTHORIZE, ""))
+                            .setPostAuthorization(prePostAnnotationValues.getOrDefault(POST_AUTHORIZE, ""))
+                            .setPreFilter(prePostAnnotationValues.getOrDefault(PRE_FILTER, ""))
+                            .setPostFilter(prePostAnnotationValues.getOrDefault(POST_FILTER, ""))
                             .createStoreModel();
                     output.add(storeModel);
                 }
@@ -150,7 +160,7 @@ public class AstAnalyzer {
         }
     }
 
-    private boolean annotationIsToBeProcessed(CtAnnotation<?> annotation) {
+    private boolean methodAnnotationIsToBeProcessed(CtAnnotation<?> annotation) {
         String annotationName = annotation.getName();
         return methodAnnotations.contains(annotationName);
     }
@@ -179,5 +189,23 @@ public class AstAnalyzer {
             case PATCH_MAPPING -> PATCH;
             default -> throw new IllegalStateException("Unexpected value: " + ctAnnotation.getName());
         };
+    }
+
+    private Map<String, String> extractPrePostAnnotationExpressions(CtMethod<?> ctMethod) {
+        if (ctMethod == null) throw new IllegalArgumentException("The CtMethod object cannot be null");
+
+        var methodAnnotations = ctMethod.getAnnotations();
+        Map<String, String> output = new HashMap<>();
+
+        for (CtAnnotation<? extends Annotation> ctAnnotation : methodAnnotations) {
+            if (ctAnnotation.getName().equals(PRE_AUTHORIZE)
+                    || ctAnnotation.getName().equals(POST_AUTHORIZE)
+                    || ctAnnotation.getName().equals(PRE_FILTER)
+                    || ctAnnotation.getName().equals(POST_FILTER)) {
+                output.put(ctAnnotation.getName(), ctAnnotation.getValueAsString("value"));
+            }
+        }
+
+        return output;
     }
 }
